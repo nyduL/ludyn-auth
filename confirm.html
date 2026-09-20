@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>Confirmar e-mail • Gaming DNA</title>
+  <title>Confirmar e-mail • Ludyn</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -14,13 +14,13 @@
     <p id="subtitle" class="subtitle">Só um instante.</p>
     <div id="spinner" class="spinner"></div>
     <div id="status" class="status hidden"></div>
-    <p class="small">Depois, volte ao aplicativo Gaming DNA e entre normalmente.</p>
+    <p class="small">Depois, volte ao aplicativo Ludyn e entre normalmente.</p>
   </main>
   <script src="./config.js"></script>
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-    const cfg = window.GAMING_DNA_CONFIG || {};
+    const cfg = window.LUDYN_CONFIG || {};
     const title = document.getElementById('title');
     const subtitle = document.getElementById('subtitle');
     const spinner = document.getElementById('spinner');
@@ -34,7 +34,7 @@
         ? 'E-mail confirmado'
         : 'Não foi possível confirmar';
       subtitle.textContent = kind === 'success'
-        ? 'Sua conta Gaming DNA está pronta.'
+        ? 'Sua conta Ludyn está pronta.'
         : 'O link pode ter expirado ou já ter sido usado.';
     }
 
@@ -61,13 +61,13 @@
         if (error) {
           show('Não foi possível validar este link. Solicite um novo e-mail.', 'error');
         } else if (data.session) {
-          show('E-mail confirmado com sucesso. Você já pode voltar ao Gaming DNA.');
+          show('E-mail confirmado com sucesso. Você já pode voltar ao Ludyn.');
         } else {
           // Em alguns navegadores o processamento automático ocorre alguns ms depois.
           await new Promise(resolve => setTimeout(resolve, 500));
           const retry = await supabase.auth.getSession();
           if (retry.data.session) {
-            show('E-mail confirmado com sucesso. Você já pode voltar ao Gaming DNA.');
+            show('E-mail confirmado com sucesso. Você já pode voltar ao Ludyn.');
           } else {
             show('Este link não contém uma sessão válida. Tente entrar no app; se necessário, solicite um novo e-mail.', 'error');
           }
