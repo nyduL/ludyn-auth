@@ -15,6 +15,7 @@
 
   window.LUDYN_CONFIG = {
     environment,
+    openAppUrl: 'ludyn://open',
     ...environments[environment],
   };
 })();
