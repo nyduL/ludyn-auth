@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <title>Excluir conta • Ludyn</title><link rel="stylesheet" href="./styles.css">
+  <style>.legal{max-width:620px}.legal a{color:#62e7c0}.danger{background:#b83c50}.warning{border:1px solid #6d5730;padding:12px;border-radius:12px;background:#211b10}</style>
+</head>
+<body>
+  <main class="card legal">
+    <div class="logo">L</div><h1>Excluir conta Ludyn</h1>
+    <p class="subtitle">Este recurso funciona sem o aplicativo instalado.</p>
+    <div class="warning">
+      <strong>Antes de excluir:</strong> se houver uma assinatura ativa na Google Play, cancele-a na sua conta Google Play. Excluir a conta Ludyn não controla automaticamente a cobrança da loja.
+    </div>
+    <p>Ao concluir, sua conta Ludyn e os dados associados serão removidos. A ação é permanente. Dados estritamente necessários para obrigação legal, prevenção a fraude ou registros financeiros podem ser retidos de forma limitada quando aplicável.</p>
+
+    <form id="loginForm" class="form">
+      <div class="field"><label for="email">E-mail da conta Ludyn</label><input id="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="password">Senha</label><input id="password" type="password" autocomplete="current-password" required></div>
+      <button id="login" type="submit">CONTINUAR COM SEGURANÇA</button>
+    </form>
+
+    <div id="confirmBox" class="hidden">
+      <p><strong>Confirmação final:</strong> digite <code>EXCLUIR</code>.</p>
+      <div class="field"><input id="confirmation" type="text" autocomplete="off" placeholder="EXCLUIR"></div>
+      <button id="deleteButton" class="danger" type="button">EXCLUIR CONTA E DADOS</button>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+    <p class="small"><a href="./privacy.html">Política de Privacidade</a> · <a href="./support.html">Suporte</a></p>
+  </main>
+
+  <script src="./config.js"></script>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const cfg = window.LUDYN_CONFIG || {};
+    const loginForm = document.getElementById('loginForm');
+    const confirmBox = document.getElementById('confirmBox');
+    const status = document.getElementById('status');
+    const deleteButton = document.getElementById('deleteButton');
+
+    const show = (message, kind='info') => {
+      status.className = `status ${kind}`;
+      status.textContent = message;
+    };
+
+    if (!cfg.supabaseUrl || !cfg.publishableKey) {
+      loginForm.classList.add('hidden');
+      show('O serviço de exclusão está temporariamente indisponível.', 'error');
+    } else {
+      const supabase = createClient(cfg.supabaseUrl, cfg.publishableKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+
+      loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        show('Validando sua conta...', 'info');
+
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          show('Não foi possível autenticar. Confira e-mail e senha.', 'error');
+          return;
+        }
+
+        loginForm.classList.add('hidden');
+        confirmBox.classList.remove('hidden');
+        show('Conta autenticada. Revise a confirmação final.', 'success');
+      });
+
+      deleteButton.addEventListener('click', async () => {
+        const confirmation = document.getElementById('confirmation').value.trim().toUpperCase();
+        if (confirmation !== 'EXCLUIR') {
+          show('Digite EXCLUIR para confirmar.', 'error');
+          return;
+        }
+
+        deleteButton.disabled = true;
+        show('Excluindo sua conta e dados associados...', 'info');
+
+        const { data, error } = await supabase.functions.invoke('delete-account');
+        if (error || data?.ok !== true) {
+          deleteButton.disabled = false;
+          show('Não foi possível concluir a exclusão agora. Tente novamente.', 'error');
+          return;
+        }
+
+        try { await supabase.auth.signOut(); } catch (_) {}
+        confirmBox.classList.add('hidden');
+        show('Conta Ludyn excluída. Você não precisa manter o aplicativo instalado.', 'success');
+      });
+    }
+  </script>
+</body></html>
