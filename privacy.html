@@ -24,6 +24,8 @@
       <li>Integrações: identificadores de conta/plataforma estritamente necessários para Steam e outras integrações habilitadas.</li>
       <li>Compras: estado de assinatura e identificadores técnicos. Tokens brutos de compra da Google Play não são persistidos pelo Ludyn.</li>
       <li>Rewarded Ads: identificadores opacos e dados necessários para validar recompensas server-side e prevenir replay/fraude.</li>
+      <li>Notificações: token técnico de push, plataforma, versão do app e preferências necessárias para enviar alertas habilitados pelo usuário.</li>
+      <li>Preço e comércio: identificadores públicos de jogos e região de consulta usados para obter preços e histórico de provedores habilitados. Esses dados não alteram o Ludyn Match.</li>
       <li>Operação e segurança: logs técnicos, request IDs e informações mínimas necessárias para diagnosticar falhas e abuso.</li>
     </ul>
 
@@ -31,7 +33,8 @@
     <p>Usamos esses dados para operar a conta, sincronizar dados, importar bibliotecas autorizadas, calcular compatibilidade e recomendações, manter quotas, validar compras, liberar recursos Pro, validar recompensas e proteger o serviço contra fraude e abuso.</p>
 
     <h2>4. Serviços externos</h2>
-    <p>O Ludyn pode usar Supabase para autenticação e dados, Render para backend, Google Play Billing para assinaturas, Google AdMob para anúncios recompensados e APIs de plataformas de jogos quando o usuário decide vinculá-las. Cada provedor também opera segundo seus próprios termos e políticas.</p>
+    <p>O Ludyn pode usar Supabase para autenticação e dados, Render para backend, Google Play Billing para assinaturas, Google AdMob para anúncios recompensados, Firebase Cloud Messaging para notificações, IsThereAnyDeal para comparação de preços quando habilitada e APIs de plataformas de jogos quando o usuário decide vinculá-las. Cada provedor também opera segundo seus próprios termos e políticas.</p>
+    <p>Quando o IsThereAnyDeal estiver habilitado, o Ludyn usa os dados de preço como contexto de decisão e preserva os preços e links fornecidos pelo provedor. A classificação de revendedores autorizados é fornecida pelo próprio IsThereAnyDeal; o Ludyn não realiza certificação independente das lojas.</p>
 
     <h2>5. Compartilhamento</h2>
     <p>O Ludyn não vende dados pessoais. Dados são compartilhados somente quando necessários para operar os provedores descritos acima, atender obrigação legal ou proteger a segurança do serviço.</p>
