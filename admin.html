@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Admin • Ludyn</title>
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    .admin{max-width:760px}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .admin a{color:#62e7c0}.hidden{display:none!important}.grant{border:1px solid #303746;border-radius:14px;padding:12px;margin-top:10px}
+    .danger{background:#b83c50}.muted{opacity:.72;font-size:.9rem}.mono{font-family:ui-monospace,monospace;font-size:.82rem;word-break:break-all}
+    select,textarea{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid #303746;background:#10151d;color:#fff;padding:12px}
+    @media(max-width:640px){.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="card admin">
+    <div class="logo">L</div>
+    <h1>Admin Ludyn</h1>
+    <p class="subtitle">Entitlements administrativos auditáveis.</p>
+
+    <form id="loginForm" class="form">
+      <div class="field"><label for="email">E-mail da conta administradora</label><input id="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="password">Senha</label><input id="password" type="password" autocomplete="current-password" required></div>
+      <button id="loginButton" type="submit">ENTRAR</button>
+    </form>
+
+    <section id="panel" class="hidden">
+      <div id="adminIdentity" class="status success"></div>
+
+      <h2>Localizar conta</h2>
+      <form id="lookupForm" class="form">
+        <div class="field"><label for="targetEmail">E-mail da conta Ludyn</label><input id="targetEmail" type="email" required></div>
+        <button type="submit">BUSCAR CONTA</button>
+      </form>
+
+      <section id="userPanel" class="hidden">
+        <div id="userSummary" class="status info"></div>
+
+        <h2>Conceder PRO manual</h2>
+        <form id="grantForm" class="form">
+          <div class="row">
+            <div class="field">
+              <label for="source">Origem</label>
+              <select id="source">
+                <option value="admin">Administrativo</option>
+                <option value="promo">Promoção</option>
+                <option value="support">Suporte</option>
+                <option value="founder">Founder</option>
+                <option value="tester">Tester</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="expiresAt">Expira em (opcional)</label>
+              <input id="expiresAt" type="datetime-local">
+            </div>
+          </div>
+          <div class="field"><label for="reason">Motivo</label><textarea id="reason" rows="3" maxlength="500" required placeholder="Ex.: acesso founder / compensação de suporte"></textarea></div>
+          <button type="submit">CONCEDER PRO</button>
+        </form>
+
+        <h2>Grants</h2>
+        <div id="grants"></div>
+      </section>
+    </section>
+
+    <div id="status" class="status hidden"></div>
+    <p class="small">A página não possui chave administrativa. Toda autorização é validada pelo backend e pela allowlist server-side.</p>
+  </main>
+
+  <script src="./config.js"></script>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const cfg = window.LUDYN_CONFIG || {};
+    const status = document.getElementById('status');
+    const loginForm = document.getElementById('loginForm');
+    const panel = document.getElementById('panel');
+    const userPanel = document.getElementById('userPanel');
+    const grants = document.getElementById('grants');
+    const userSummary = document.getElementById('userSummary');
+    let target = null;
+
+    const show = (message, kind='info') => {
+      status.className = `status ${kind}`;
+      status.textContent = message;
+    };
+
+    if (!cfg.supabaseUrl || !cfg.publishableKey || !cfg.backendUrl) {
+      loginForm.classList.add('hidden');
+      show('Configuração administrativa indisponível.', 'error');
+    } else {
+      const supabase = createClient(cfg.supabaseUrl, cfg.publishableKey, {
+        auth: { persistSession: false, autoRefreshToken: true },
+      });
+
+      async function authHeader() {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('Sessão administrativa ausente.');
+        return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+      }
+
+      async function api(path, options={}) {
+        const response = await fetch(`${cfg.backendUrl}${path}`, {
+          ...options,
+          headers: { ...(await authHeader()), ...(options.headers || {}) },
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+        return body;
+      }
+
+      function fmt(value) {
+        if (!value) return 'sem expiração';
+        try { return new Date(value).toLocaleString(); } catch (_) { return value; }
+      }
+
+      function renderUser(body) {
+        target = body.user;
+        const e = body.entitlement || {};
+        userSummary.textContent =
+          `${target.email} • plano efetivo: ${String(e.plan || 'free').toUpperCase()} • origem: ${e.source || 'free'} • validade: ${fmt(e.validUntil)}`;
+        userPanel.classList.remove('hidden');
+
+        const items = Array.isArray(body.grants) ? body.grants : [];
+        grants.innerHTML = '';
+        if (!items.length) {
+          grants.textContent = 'Nenhum grant administrativo registrado.';
+          return;
+        }
+
+        for (const item of items) {
+          const box = document.createElement('div');
+          box.className = 'grant';
+          const active = !item.revoked_at &&
+            (!item.expires_at || new Date(item.expires_at).getTime() > Date.now());
+
+          box.innerHTML = `
+            <strong>${item.source}</strong> • ${active ? 'ATIVO' : 'INATIVO'}<br>
+            <span>${item.reason}</span><br>
+            <span class="muted">criado: ${fmt(item.created_at)} • expira: ${fmt(item.expires_at)}</span><br>
+            <span class="mono">${item.id}</span>
+          `;
+
+          if (active) {
+            const button = document.createElement('button');
+            button.className = 'danger';
+            button.type = 'button';
+            button.textContent = 'REVOGAR ESTE GRANT';
+            button.addEventListener('click', async () => {
+              if (!confirm('Revogar somente este grant administrativo? Uma assinatura Google Play válida continuará ativa.')) return;
+              button.disabled = true;
+              try {
+                await api('/api/admin/entitlements/revoke', {
+                  method: 'POST',
+                  body: JSON.stringify({ grantId: item.id, reason: 'Revogado pelo painel Admin Ludyn' }),
+                });
+                await lookup(target.email);
+              } catch (error) {
+                show(error.message, 'error');
+                button.disabled = false;
+              }
+            });
+            box.appendChild(document.createElement('br'));
+            box.appendChild(button);
+          }
+          grants.appendChild(box);
+        }
+      }
+
+      async function lookup(email) {
+        show('Consultando conta...', 'info');
+        const body = await api(`/api/admin/users/lookup?email=${encodeURIComponent(email)}`);
+        renderUser(body);
+        show('Conta carregada.', 'success');
+      }
+
+      loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        show('Autenticando...', 'info');
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return show('Login inválido.', 'error');
+
+        try {
+          const me = await api('/api/admin/me');
+          loginForm.classList.add('hidden');
+          panel.classList.remove('hidden');
+          document.getElementById('adminIdentity').textContent =
+            `${me.email} • função: ${me.role} • ambiente: ${cfg.environment}`;
+          show('Acesso administrativo validado.', 'success');
+        } catch (error) {
+          await supabase.auth.signOut();
+          show(error.message, 'error');
+        }
+      });
+
+      document.getElementById('lookupForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          await lookup(document.getElementById('targetEmail').value.trim());
+        } catch (error) {
+          userPanel.classList.add('hidden');
+          show(error.message, 'error');
+        }
+      });
+
+      document.getElementById('grantForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!target) return;
+        const reason = document.getElementById('reason').value.trim();
+        const source = document.getElementById('source').value;
+        const rawExpiry = document.getElementById('expiresAt').value;
+        const expiresAt = rawExpiry ? new Date(rawExpiry).toISOString() : null;
+
+        try {
+          await api('/api/admin/entitlements/grant', {
+            method: 'POST',
+            body: JSON.stringify({
+              userId: target.user_id,
+              source,
+              reason,
+              expiresAt,
+            }),
+          });
+          document.getElementById('reason').value = '';
+          document.getElementById('expiresAt').value = '';
+          await lookup(target.email);
+          show('PRO administrativo concedido.', 'success');
+        } catch (error) {
+          show(error.message, 'error');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
